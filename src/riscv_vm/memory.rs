@@ -1,5 +1,6 @@
-use crate::riscv_core::riscv::{RiscByte, RiscvHalf, RiscvWord};
+use crate::riscv_core::riscv::{RiscvByte, RiscvHalf, RiscvWord};
 use riscv_decode::Instruction;
+use std::mem::size_of;
 
 const MASK_LOW: usize = 0xffff;
 const MASK_HIGH: usize = 0x0000ffff;
@@ -34,17 +35,21 @@ impl Memory {
     }
 
     /// Return the Instruction in $addr.
-    pub fn read_inst(&self, addr: usize) -> Result<Instruction> {
+    pub fn read_inst(&self, addr: usize) -> Result<(u32, Instruction)> {
         let addr_low = addr & MASK_LOW;
         assert!((addr_low & 3) == 0); // 指令要求4字节对齐
         let chunk = &self.chunks[(addr >> 16) as usize];
         if chunk.is_none() {
+            println!("addr=0x{:x}", addr);
             return Err(MemoryError::AccessError);
         }
         let chunk = chunk.as_ref().unwrap();
         unsafe {
             let raw_inst = *(&chunk.data[addr_low as usize] as *const u8 as usize as *const u32);
-            Ok(riscv_decode::decode(raw_inst).expect("decode instruction error."))
+            Ok((
+                raw_inst,
+                riscv_decode::decode(raw_inst).expect("decode instruction error."),
+            ))
         }
     }
 
@@ -150,7 +155,7 @@ impl Memory {
     }
 
     /// Read a byte from memory.
-    pub fn read_byte(&self, addr: usize) -> Result<RiscByte> {
+    pub fn read_byte(&self, addr: usize) -> Result<RiscvByte> {
         assert!(addr < MEMORY_SIZE);
         let addr_low = addr & MASK_LOW;
         let chunk = &self.chunks[(addr >> 16) as usize];
@@ -158,6 +163,27 @@ impl Memory {
             return Ok(0);
         }
         let chunk = chunk.as_ref().unwrap();
-        unsafe { Ok(*(&chunk.data[addr_low as usize] as *const u8 as usize as *const RiscByte)) }
+        unsafe { Ok(*(&chunk.data[addr_low as usize] as *const u8 as usize as *const RiscvByte)) }
+    }
+
+    /// Read a word from memory.
+    pub fn write_word(&mut self, addr: usize, val: RiscvWord) {
+        assert!(addr < MEMORY_SIZE);
+        let ptr = &val as *const RiscvWord as usize as *const u8;
+        self.write_by_ptr(addr, ptr, size_of::<RiscvWord>())
+    }
+
+    /// Read a half word from memory.
+    pub fn write_half(&mut self, addr: usize, val: RiscvHalf) {
+        assert!(addr < MEMORY_SIZE);
+        let ptr = &val as *const RiscvHalf as usize as *const u8;
+        self.write_by_ptr(addr, ptr, size_of::<RiscvHalf>())
+    }
+
+    /// Read a byte from memory.
+    pub fn write_byte(&mut self, addr: usize, val: RiscvByte) {
+        assert!(addr < MEMORY_SIZE);
+        let ptr = &val as *const RiscvByte as usize as *const u8;
+        self.write_by_ptr(addr, ptr, size_of::<RiscvByte>())
     }
 }

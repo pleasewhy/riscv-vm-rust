@@ -6,5 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-riscv-decode = "0.2.0"
+riscv-decode = { git="https://github.com/pleasewhy/riscv-decode", rev="b7668c11c8fdcc4db2da50c7e5b041f60736b135"}
 elf = "0.0.10"
+simple_logger = "1.16.0"
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_trace"] }
